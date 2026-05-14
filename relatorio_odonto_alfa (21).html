@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard de Produtividade | LM | Odonto Alfa</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #fffbf8;
+      --surface: #ffffff;
+      --surface2:#f0f4fb;
+      --border:  rgba(1,34,106,0.10);
+      --navy:    #01226a;
+      --navy-dim:rgba(1,34,106,0.10);
+      --navy-mid:rgba(1,34,106,0.35);
+      --green:   #059669;
+      --red:     #dc2626;
+      --blue:    #2563eb;
+      --orange:  #d97706;
+      --purple:  #7c3aed;
+      --text:    #0f172a;
+      --muted:   #64748b;
+      --radius:  16px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+    /* LOADING */
+    #loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:20px;transition:opacity .4s}
+    #loading-screen.hidden{opacity:0;pointer-events:none}
+    .spinner{width:40px;height:40px;border:3px solid var(--surface2);border-top-color:var(--navy);border-radius:50%;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-brand{font-family:'Montserrat',sans-serif;font-size:1.6rem;font-weight:800;color:var(--navy);letter-spacing:-.5px}
+    .loading-brand span{color:var(--blue)}
+    .loading-label{font-size:14px;color:var(--muted)}
+
+    /* HEADER */
+    .header{background:#01226a;border-bottom:none;padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:200;box-shadow:0 4px 16px rgba(1,34,106,0.30)}
+    .header-brand{display:flex;align-items:center;gap:14px}
+    .brand-icon{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .brand-name{font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:800;color:#ffffff;letter-spacing:-.3px}
+    .brand-sub{font-size:.65rem;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:1.8px}
+    .header-right{display:flex;align-items:center;gap:14px;font-size:.72rem;color:rgba(255,255,255,0.75)}
+    .source-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:100px;padding:4px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.85)}
+    .source-badge.live{background:rgba(5,150,105,0.25);border-color:rgba(5,210,120,0.6);color:#6ee7b7}
+    .pulse{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+    /* NAV TABS */
+    .nav-bar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 24px;overflow-x:auto;gap:0}
+    .nav-tab{padding:14px 22px;font-size:.75rem;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;transition:color .2s;user-select:none}
+    .nav-tab:hover{color:var(--navy)}
+    .nav-tab.active{color:var(--navy);border-bottom-color:var(--navy)}
+
+    /* PAGES */
+    .page{display:none;padding:28px 24px;max-width:1400px;margin:0 auto}
+    .page.active{display:block;animation:fadeIn .25s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+    /* CARDS */
+    .card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;margin-bottom:20px;box-shadow:0 6px 24px rgba(1,34,106,0.08),0 1px 4px rgba(1,34,106,0.05);position:relative;transition:transform .2s,box-shadow .2s}
+    .card:hover{transform:translateY(-2px);box-shadow:0 12px 36px rgba(1,34,106,0.13),0 2px 8px rgba(1,34,106,0.08)}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--navy),transparent)}
+    .card-body{padding:22px 24px}
+    .card-title{font-family:'Montserrat',sans-serif;font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+    .card-title::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--navy);flex-shrink:0}
+
+    /* SECTION HEADER */
+    .section-header{background:var(--navy);padding:14px 24px;text-align:center;font-family:'Montserrat',sans-serif;font-size:.95rem;font-weight:800;text-transform:uppercase;letter-spacing:2.5px;color:#fff}
+
+    /* KPI CARDS */
+    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:22px}
+    .kpi-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:22px 20px;position:relative;overflow:hidden;box-shadow:0 6px 24px rgba(1,34,106,0.08),0 1px 4px rgba(1,34,106,0.05);transition:transform .2s,box-shadow .2s}
+    .kpi-card:hover{transform:translateY(-3px);box-shadow:0 14px 36px rgba(1,34,106,0.13),0 2px 8px rgba(1,34,106,0.08)}
+    .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--navy),transparent)}
+    .kpi-card.orange::before{background:linear-gradient(90deg,transparent,var(--orange),transparent)}
+    .kpi-card.blue::before{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
+    .kpi-card.green::before{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+    .kpi-card.purple::before{background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+    .kpi-label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+    .kpi-value{font-family:'Montserrat',sans-serif;font-size:clamp(20px,2.5vw,28px);font-weight:700;color:var(--navy);line-height:1}
+    .kpi-card.orange .kpi-value{color:var(--orange)}
+    .kpi-card.blue   .kpi-value{color:var(--blue)}
+    .kpi-card.green  .kpi-value{color:var(--green)}
+    .kpi-card.purple .kpi-value{color:var(--purple)}
+    .kpi-sub{font-size:12px;color:var(--muted);margin-top:6px}
+
+    /* GRID */
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
+    .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px}
+    .g13{display:grid;grid-template-columns:1fr 2.5fr;gap:18px;margin-bottom:20px}
+    @media(max-width:900px){.g2,.g3,.g13{grid-template-columns:1fr}}
+
+    /* TABELAS */
+    .tbl-wrap{overflow-x:auto}
+    table.dt{width:100%;border-collapse:collapse;font-size:.78rem}
+    table.dt thead th{padding:10px 14px;text-align:center;white-space:nowrap;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface2)}
+    table.dt th.th-grp{background:var(--navy);color:#fff;font-size:.7rem}
+    table.dt th.left{text-align:left}
+    table.dt td{padding:10px 14px;text-align:center;border-bottom:1px solid rgba(1,34,106,0.05);color:var(--text)}
+    table.dt td.left{text-align:left;font-weight:600;color:var(--navy)}
+    table.dt tbody tr{transition:background .15s}
+    table.dt tbody tr:hover td{background:rgba(1,34,106,0.03)}
+    table.dt tr.total td{font-weight:700;font-size:.8rem;background:var(--surface2)!important;border-top:1px solid var(--border);color:var(--navy)}
+    .taxa{display:inline-block;padding:3px 9px;border-radius:100px;font-weight:600;font-size:.76rem}
+    .taxa-hi {background:rgba(5,150,105,.12);color:var(--green)}
+    .taxa-mid{background:rgba(37,99,235,.12);color:var(--blue)}
+    .taxa-lo {background:rgba(217,119,6,.12);color:var(--orange)}
+    .taxa-vhi{background:rgba(5,150,105,.22);color:var(--green);font-weight:700}
+
+    /* FILTRO */
+    .filter-bar{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+    .filter-label{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:1px}
+    .filter-select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:100px;font-family:'DM Sans',sans-serif;font-size:.8rem;cursor:pointer;outline:none;box-shadow:0 1px 4px rgba(1,34,106,0.07);transition:border-color .2s}
+    .filter-select:focus{border-color:var(--navy)}
+
+    /* RANKING */
+    .rank-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(1,34,106,0.06)}
+    .rank-row:last-child{border-bottom:none}
+    .rank-num{font-size:.7rem;color:var(--muted);font-weight:700;width:20px;text-align:right}
+    .rank-name{flex:1;font-size:.82rem;font-weight:600;color:var(--text)}
+    .rank-bar-wrap{width:90px;height:5px;background:var(--surface2);border-radius:99px}
+    .rank-bar{height:100%;border-radius:99px}
+    .rank-val{font-size:.8rem;font-weight:700;min-width:55px;text-align:right}
+
+    /* CHART WRAP */
+    .chart-box{position:relative;width:100%}
+
+    /* KPI FAT */
+    .kpi-big-label{font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+    .kpi-big-val{font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:700;line-height:1;color:var(--navy)}
+    .kpi-big-val.teal{color:var(--green)}
+    .kpi-big-val.orange{color:var(--orange)}
+
+    /* SEC TITLE MEDICOES */
+    .sec-title{font-family:'Montserrat',sans-serif;font-size:.78rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--navy-dim);display:flex;align-items:center;gap:8px}
+    .sec-title::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--navy)}
+
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:var(--bg)}
+    ::-webkit-scrollbar-thumb{background:rgba(1,34,106,0.15);border-radius:99px}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(1,34,106,0.30)}
+  </style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="loading-brand">LM | Odonto<span>Alfa</span></div>
+  <div class="spinner"></div>
+  <div class="loading-label">Carregando dashboard…</div>
+</div>
+
+<header class="header">
+  <div class="header-brand">
+    <div class="brand-icon">
+      <img src="data:image/png;base64,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" alt="LM Gestão Financeira" width="44" height="44" style="display:block;opacity:0.95">
+    </div>
+    <div>
+      <div class="brand-name" id="clinicNameHeader">LM | Odonto Alfa</div>
+      <div class="brand-sub">Dashboard de Produtividade</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div id="dataSourceBadge" class="source-badge"><div class="pulse"></div>Dados de Demonstração</div>
+    <span id="lastUpdated" style="display:none;font-size:.7rem;color:rgba(255,255,255,0.65)"></span>
+  </div>
+</header>
+
+<div id="year-bar" style="background:#f8fafc;border-bottom:1px solid rgba(1,34,106,0.08);padding:6px 24px;display:flex;align-items:center;gap:12px">
+  <span style="font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px">Ano:</span>
+  <div id="yearPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  <span id="cmpBadge" style="margin-left:auto;font-size:.72rem;color:#64748b;display:none"></span>
+</div>
+<nav class="nav-bar">
+  <div class="nav-tab active" data-page="visao-geral">Visão Geral</div>
+  <div class="nav-tab" data-page="ocup-consultorio">Ocupação por Consultório</div>
+  <div class="nav-tab" data-page="ocup-dentista">Ocupação por Dentista</div>
+  <div class="nav-tab" data-page="faturamento">Faturamento/Hora</div>
+  <div class="nav-tab" data-page="medicoes">Medições</div>
+</nav>
+
+<!-- PÁG 1: VISÃO GERAL -->
+<div class="page active" id="page-visao-geral">
+  <div class="filter-bar">
+    <span class="filter-label">Período:</span>
+    <select class="filter-select" id="filterPeriodoGeral"><option value="all">Acumulado (todos os meses)</option></select>
+  </div>
+  <div class="kpi-row" id="kpiGeralRow"></div>
+  <div class="g2">
+    <div class="card"><div class="card-body"><div class="card-title">Evolução de Horas Vagas por Consultório</div><div class="chart-box" style="height:220px"><canvas id="chartGeralVagas"></canvas></div></div></div>
+    <div class="card"><div class="card-body"><div class="card-title">Faturamento/Hora por Mês (Clínica)</div><div class="chart-box" style="height:220px"><canvas id="chartGeralFatMes"></canvas></div></div></div>
+  </div>
+  <div class="g3">
+    <div class="card"><div class="card-body"><div class="card-title">Ranking — Taxa de Ocupação por Dentista</div><div id="rankingOcup"></div></div></div>
+    <div class="card"><div class="card-body"><div class="card-title">Ranking — Faturamento/Hora por Dentista</div><div id="rankingFat"></div></div></div>
+    <div class="card"><div class="card-body"><div class="card-title">Produção por Consultório</div><div class="chart-box" style="height:220px"><canvas id="chartGeralProdCons"></canvas></div></div></div>
+  </div>
+</div>
+
+<!-- PÁG 2: OCUPAÇÃO POR CONSULTÓRIO -->
+<div class="page" id="page-ocup-consultorio">
+  <div class="card">
+    <div class="section-header">Taxa de Ocupação por Consultório</div>
+    <div class="card-body">
+      <div class="card-title" style="margin-bottom:14px">Taxa de Ocupação ao longo do tempo por Consultório</div>
+      <div class="chart-box" style="height:300px"><canvas id="chartOcupConsultorio"></canvas></div>
+    </div>
+  </div>
+  <div class="card"><div class="card-body"><div class="tbl-wrap"><table class="dt"><thead id="tblOcupConsultorioHead"></thead><tbody id="tblOcupConsultorioBody"></tbody></table></div></div></div>
+</div>
+
+<!-- PÁG 3: OCUPAÇÃO POR DENTISTA -->
+<div class="page" id="page-ocup-dentista">
+  <div class="card">
+    <div class="section-header">Taxa de Ocupação por Dentista (Sem Influência Das Horas Vagas)</div>
+    <div class="card-body"><div class="tbl-wrap"><table class="dt"><thead id="tblOcupDentistaHead"></thead><tbody id="tblOcupDentistaBody"></tbody></table></div></div>
+  </div>
+  <div class="card"><div class="card-body"><div class="card-title" style="margin-bottom:14px">Taxa de Ocupação ao longo do tempo por Profissional</div><div class="chart-box" style="height:320px"><canvas id="chartOcupDentista"></canvas></div></div></div>
+</div>
+
+<!-- PÁG 4: FATURAMENTO/HORA -->
+<div class="page" id="page-faturamento">
+  <div class="card" style="margin-bottom:20px">
+    <div style="background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:12px 24px">
+      <span style="font-family:'Montserrat',sans-serif;font-size:.95rem;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:2px">Faturamento Hora</span>
+      <div class="filter-bar" style="margin:0">
+        <span class="filter-label" style="color:rgba(255,255,255,.65)">Mês:</span>
+        <select class="filter-select" id="filterMesFat" style="background:rgba(255,255,255,0.92);border-color:rgba(255,255,255,0.4);color:#01226a;font-weight:600"></select>
+      </div>
+    </div>
+  </div>
+  <div class="g13" style="align-items:start">
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="card"><div class="card-body">
+        <div class="card-title">Produção por Dentista</div>
+        <div class="chart-box" style="height:210px"><canvas id="chartProdDonut"></canvas></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div class="kpi-big-label">Produção Total</div>
+          <div class="kpi-big-val teal" id="kpiProdTotal">—</div>
+        </div>
+      </div></div>
+      <div class="card"><div class="card-body">
+        <div class="card-title">Horas Produtivas por Dentista</div>
+        <div class="chart-box" style="height:210px"><canvas id="chartHorasDonut"></canvas></div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div class="kpi-big-label">Horas Produtivas Totais</div><div class="kpi-big-val orange" id="kpiHorasTotais">—</div></div>
+          <div style="text-align:right"><div class="kpi-big-label">Fat./Hora Clínica</div><div class="kpi-big-val" style="color:var(--blue)" id="kpiFatHora">—</div></div>
+        </div>
+      </div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="card"><div class="card-body">
+        <div class="card-title">Faturamento/Hora por Dentista</div>
+        <div class="chart-box" style="height:240px"><canvas id="chartFatBar"></canvas></div>
+      </div></div>
+      <div class="card"><div class="card-body">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+          <div class="card-title" style="margin-bottom:0">Faturamento/Hora por Mês</div>
+          <div style="text-align:right"><div class="kpi-big-label">Fat./Hora Clínica</div><div class="kpi-big-val" style="color:var(--navy);font-size:1.35rem" id="kpiFatHoraRight">—</div></div>
+        </div>
+        <div class="chart-box" style="height:230px"><canvas id="chartFatLine"></canvas></div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PÁG 5: MEDIÇÕES -->
+<div class="page" id="page-medicoes">
+  <div class="card">
+    <div class="section-header">Medições por Consultório</div>
+    <div class="card-body">
+      <div class="sec-title">Produção · Ocioso · Vago por Mês</div>
+      <div class="chart-box" style="height:240px;margin-bottom:20px"><canvas id="chartMedConsBars"></canvas></div>
+      <div class="tbl-wrap"><table class="dt" style="min-width:800px"><thead id="tblMedConsHead"></thead><tbody id="tblMedConsBody"></tbody></table></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-header">Medições por Dentista</div>
+    <div class="card-body">
+      <div class="sec-title">Produção · Ocioso por Mês</div>
+      <div class="chart-box" style="height:240px;margin-bottom:20px"><canvas id="chartMedDentBars"></canvas></div>
+      <div class="tbl-wrap"><table class="dt" style="min-width:700px"><thead id="tblMedDentHead"></thead><tbody id="tblMedDentBody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ CONFIG ══════════════════════════════════════════════════
+const CONFIG = {
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwIRCn98VNMX1mxU_GFpCAiCJSXgZwyK2mRncowGGiGATUcHCEzekE8Ni9J6HQeflBb/exec',
+  CLINIC_NAME: 'Odonto Alfa',
+  AUTO_REFRESH: true,
+  REFRESH_MIN: 5,
+};
+
+// ══ PALETA ══════════════════════════════════════════════════
+const COLORS = ['#01226a','#2563eb','#d97706','#059669','#7c3aed','#dc2626','#0891b2'];
+function getColor(i,alpha=1){
+  const c=COLORS[i%COLORS.length];
+  const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);
+  return alpha===1?c:`rgba(${r},${g},${b},${alpha})`;
+}
+
+Chart.defaults.color='#64748b';
+Chart.defaults.font.family="'DM Sans',sans-serif";
+Chart.defaults.font.size=12;
+const TT={backgroundColor:'#1a2235',borderColor:'rgba(255,255,255,0.1)',borderWidth:1,titleColor:'#f1f5f9',bodyColor:'#94a3b8',padding:12,cornerRadius:8};
+
+// ══ DADOS DEMO ══════════════════════════════════════════════
+const DEMO = {
+  clinicName:'Odonto Alfa',updatedAt:null,
+  meses:['janeiro','fevereiro','março','abril','maio'],
+  consultorios:{
+    'CONSULTÓRIO 1':{horasDisp:['—','—','—','154:00:00','57:00:00'],taxaOcup:[null,null,null,8.12,7.89]},
+    'CONSULTÓRIO 2':{horasDisp:['—','—','—','166:00:00','65:00:00'],taxaOcup:[null,null,null,28.01,58.46]},
+    'CONSULTÓRIO 3':{horasDisp:['—','—','—','157:00:00','57:00:00'],taxaOcup:[null,null,null,39.17,50.00]},
+  },
+  dentistas:{
+    'LUCAS':   {horasDisp:['—','—','—','17:00:00','9:00:00'],  taxaOcup:[null,null,null,61.76,83.33]},
+    'MARCELLA':{horasDisp:['—','—','—','76:00:00','27:00:00'], taxaOcup:[null,null,null,75.00,77.78]},
+    'MARIANE': {horasDisp:['—','—','—','79:30:00','30:00:00'], taxaOcup:[null,null,null,33.33,80.00]},
+    'PALOMA':  {horasDisp:['—','—','—','28:30:00','21:00:00'], taxaOcup:[null,null,null,92.98,88.10]},
+  },
+  faturamento:{porDentistaPorMes:{
+    'janeiro':  {'MARINA SOIER':{producao:37993,horas:0},'MARCELLA':{producao:44635,horas:0},'PALOMA':{producao:7660,horas:0},'LUCAS':{producao:5962.5,horas:0}},
+    'fevereiro':{'PALOMA':{producao:5854,horas:0},'MARCELLA':{producao:43255,horas:0},'MARINA SOIER':{producao:84551,horas:0},'LUCAS':{producao:23750,horas:0}},
+    'março':    {'MARCELLA':{producao:25949,horas:0},'PALOMA':{producao:8008,horas:0},'MARINA SOIER':{producao:28392.5,horas:0},'LUCAS':{producao:7150,horas:0},'MARIANE':{producao:760,horas:0}},
+    'abril':    {'MARCELLA':{producao:37612.4,horas:57},'MARIANE':{producao:5090,horas:26.5},'PALOMA':{producao:10380,horas:26.5},'LUCAS':{producao:0,horas:10.5},'MARINA SOIER':{producao:2000,horas:0}},
+    'maio':     {'MARIANE':{producao:700,horas:24},'PALOMA':{producao:4690,horas:18.5},'MARCELLA':{producao:14440,horas:21},'LUCAS':{producao:23700,horas:7.5},'MARINA SOIER':{producao:3200,horas:0}},
+  }},
+  medicoes:{
+    consultorios:{
+      'CONSULTÓRIO 1':{producao:['—','—','—','12:30:00','4:30:00'],ocioso:['—','—','—','6:30:00','0:00:00'],vago:['—','—','—','135:00:00','52:30:00']},
+      'CONSULTÓRIO 2':{producao:['—','—','—','46:30:00','38:00:00'],ocioso:['—','—','—','34:30:00','0:30:00'],vago:['—','—','—','85:00:00','26:30:00']},
+      'CONSULTÓRIO 3':{producao:['—','—','—','61:30:00','28:30:00'],ocioso:['—','—','—','5:00:00','0:30:00'],vago:['—','—','—','90:30:00','28:00:00']},
+    },
+    dentistas:{
+      'LUCAS':   {producao:['—','—','—','10:30:00','7:30:00'],ocioso:['—','—','—','3:30:00','0:00:00']},
+      'MARCELLA':{producao:['—','—','—','57:00:00','21:00:00'],ocioso:['—','—','—','1:00:00','0:30:00']},
+      'MARIANE': {producao:['—','—','—','26:30:00','24:00:00'],ocioso:['—','—','—','39:30:00','0:00:00']},
+      'PALOMA':  {producao:['—','—','—','26:30:00','18:30:00'],ocioso:['—','—','—','2:00:00','0:30:00']},
+    },
+  },
+};
+
+// ══ ESTADO ══════════════════════════════════════════════════
+let DATA=null, charts={};
+let filtroGeralAtivo='all';
+let mesFatAtivo=null;
+let anoAtivo=null;  // ano selecionado no seletor de ano
+
+// Helper: retorna dados do ano ativo
+function YD(){ return (DATA.dadosPorAno&&DATA.dadosPorAno[anoAtivo]) ? DATA.dadosPorAno[anoAtivo] : DATA; }
+
+function fmtPct(v){return v==null?'—':v.toFixed(2).replace('.',',')+' %'}
+function fmtBRL(v){return 'R$\u00a0'+(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function capitalize(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function taxaClass(v){if(v==null)return '';if(v>=90)return 'taxa taxa-vhi';if(v>=75)return 'taxa taxa-hi';if(v>=60)return 'taxa taxa-mid';return 'taxa taxa-lo'}
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+function hhmmToH(s){if(!s||s==='—')return 0;const p=s.split(':');return +p[0]+(+(p[1]||0))/60+(+(p[2]||0))/3600}
+function hDecimalToHHMM(h){const hrs=Math.floor(h),mins=Math.round((h-hrs)*60);return `${hrs}:${String(mins).padStart(2,'0')}`}
+
+function lineOpts(unit='',range=[null,null]){return{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#64748b',font:{family:'DM Sans',size:11},boxWidth:13,padding:16}},tooltip:{...TT,callbacks:{label:c=>{const y=c.parsed.y;if(y==null)return null;return ' '+c.dataset.label+': '+(unit==='%'?fmtPct(y):unit==='R$'?fmtBRL(y):y)}}}},scales:{x:{ticks:{color:'#64748b',font:{family:'DM Sans',size:11}},grid:{color:'rgba(1,34,106,0.05)'}},y:{ticks:{color:'#64748b',font:{family:'DM Sans',size:11},callback:v=>unit==='%'?v+'%':unit==='R$'?'R$ '+v:v},grid:{color:'rgba(1,34,106,0.05)'},...(range[0]!=null?{suggestedMin:range[0]}:{}),...(range[1]!=null?{suggestedMax:range[1]}:{})}}}}
+function donutOpts(unit=''){return{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#64748b',font:{family:'DM Sans',size:11},boxWidth:11,padding:8}},tooltip:{...TT,callbacks:{label:c=>{const tot=c.dataset.data.reduce((a,b)=>a+b,0);return ` ${c.label}: ${(c.parsed/tot*100).toFixed(1)}% (${c.parsed.toFixed(1)}${unit})`}}}}}}
+function stackedBarOpts(){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#64748b',font:{family:'DM Sans',size:11}}},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y}h`}}},scales:{x:{stacked:true,ticks:{color:'#64748b',font:{family:'DM Sans',size:11}},grid:{display:false}},y:{stacked:true,ticks:{color:'#64748b',font:{family:'DM Sans',size:11},callback:v=>v+'h'},grid:{color:'rgba(1,34,106,0.05)'},beginAtZero:true}}}}
+
+// ══ INIT ════════════════════════════════════════════════════
+async function carregarDados(){
+  if(CONFIG.APPS_SCRIPT_URL){
+    const res = await fetch(CONFIG.APPS_SCRIPT_URL);
+    const json = await res.json();
+    if(json.error) throw new Error(json.error);
+    DATA = json;
+    const badge=document.getElementById('dataSourceBadge');
+    badge.innerHTML='<div class="pulse"></div>Google Sheets';
+    badge.classList.add('live');
+    if(DATA.updatedAt){
+      const el=document.getElementById('lastUpdated');
+      el.textContent='Atualizado: '+new Date(DATA.updatedAt).toLocaleString('pt-BR');
+      el.style.display='';
+    }
+  } else {
+    DATA=DEMO;
+  }
+}
+
+async function init(){
+  try {
+    await carregarDados();
+  } catch(e) {
+    console.warn('Apps Script erro, tentando novamente em 5s:', e);
+    try {
+      await new Promise(r=>setTimeout(r,5000));
+      await carregarDados();
+    } catch(e2) {
+      console.warn('Retry falhou, usando DEMO:', e2);
+      DATA=DEMO;
+    }
+  }
+  if(DATA.clinicName){
+    document.title='Dashboard | '+DATA.clinicName;
+    document.getElementById('clinicNameHeader').textContent=DATA.clinicName;
+  }
+  buildFilters();
+  renderAll();
+  // Refresh silencioso — não toca nos filtros, só atualiza dados e gráficos
+  if(CONFIG.AUTO_REFRESH && CONFIG.APPS_SCRIPT_URL){
+    setInterval(async ()=>{
+      try {
+        await carregarDados();
+        renderAll(); // usa filtroGeralAtivo e mesFatAtivo preservados
+      } catch(e){ console.warn('Refresh silencioso falhou:', e); }
+    }, CONFIG.REFRESH_MIN * 60 * 1000);
+  }
+  setTimeout(()=>{const ls=document.getElementById('loading-screen');ls.classList.add('hidden');setTimeout(()=>ls.remove(),400)},700);
+}
+
+function buildFilters(){
+  const MESES_PT_LOCAL=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const mesAtualIdx=new Date().getMonth();
+
+  // ── Seletor de ANO ────────────────────────────────────────
+  const anos = DATA.anosDisponiveis || [DATA.anoFoco || new Date().getFullYear()];
+  if(anoAtivo===null) anoAtivo = DATA.anoFoco || anos[anos.length-1];
+
+  const pillsEl=document.getElementById('yearPills');
+  pillsEl.innerHTML='';
+  anos.slice().reverse().forEach(a=>{
+    const btn=document.createElement('button');
+    btn.textContent=a;
+    btn.dataset.ano=a;
+    btn.style.cssText='padding:4px 14px;border-radius:100px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid rgba(1,34,106,0.20);background:'+(a===anoAtivo?'#01226a':'#fff')+';color:'+(a===anoAtivo?'#fff':'#01226a')+';font-family:DM Sans,sans-serif;transition:all .15s';
+    btn.addEventListener('click',()=>{ anoAtivo=+btn.dataset.ano; buildFilters(); renderAll(); });
+    pillsEl.appendChild(btn);
+  });
+
+  // ── Filtro Visão Geral ────────────────────────────────────
+  const yd=YD();
+  const meses=yd.meses||[];
+  const selG=document.getElementById('filterPeriodoGeral');
+  selG.innerHTML='<option value="all">Acumulado (todos os meses)</option>';
+  meses.forEach((m,i)=>{
+    const o=document.createElement('option');o.value=i;o.textContent=capitalize(m);selG.appendChild(o);
+  });
+  if(filtroGeralAtivo!=='all' && +filtroGeralAtivo>=meses.length) filtroGeralAtivo='all';
+  selG.value=filtroGeralAtivo;
+  selG.addEventListener('change',e=>{filtroGeralAtivo=e.target.value;renderVisaoGeral();});
+
+  // ── Filtro Faturamento/Hora ────────────────────────────────
+  const selF=document.getElementById('filterMesFat');
+  selF.innerHTML='';
+  meses.forEach((m,i)=>{
+    const o=document.createElement('option');o.value=i;o.textContent=capitalize(m);selF.appendChild(o);
+  });
+  if(mesFatAtivo===null || mesFatAtivo>=meses.length){
+    const idxFat=meses.findIndex(m=>m===MESES_PT_LOCAL[mesAtualIdx]);
+    mesFatAtivo=idxFat>=0?idxFat:meses.length-1;
+  }
+  selF.value=mesFatAtivo;
+  selF.addEventListener('change',e=>{mesFatAtivo=+e.target.value;renderFaturamento()});
+
+  // ── Badge comparação YoY ───────────────────────────────────
+  const anosArr=DATA.anosDisponiveis||[];
+  const anoAntIdx=anosArr.indexOf(anoAtivo)-1;
+  const badge=document.getElementById('cmpBadge');
+  if(anoAntIdx>=0){
+    badge.textContent='Comparando com '+anosArr[anoAntIdx];badge.style.display='';
+  } else { badge.style.display='none'; }
+}
+
+function renderAll(){renderVisaoGeral();renderOcupConsultorio();renderOcupDentista();renderFaturamento();renderMedicoes()}
+
+// ══ VISÃO GERAL ═════════════════════════════════════════════
+function renderVisaoGeral(){
+  const fi=filtroGeralAtivo;
+  const yd=YD();
+  const cons=yd.consultorios||{},dent=yd.dentistas||{},meses=yd.meses||[];
+  const cNames=Object.keys(cons),dNames=Object.keys(dent);
+  const mesObj=(yd.faturamento||{}).porDentistaPorMes||{};
+  const mesAtivos=fi==='all'?meses:[meses[+fi]];
+  let tH=0,tO=0;
+  cNames.forEach(c=>{(fi==='all'?meses.map((_,i)=>i):[+fi]).forEach(i=>{const h=hhmmToH(cons[c].horasDisp[i]);tH+=h;tO+=h*(cons[c].taxaOcup[i]||0)/100})});
+  const taxaGeral=tH>0?tO/tH*100:0;
+  let prodTotal=0,hTotal=0;
+  mesAtivos.forEach(m=>{const obj=mesObj[m]||{};Object.values(obj).forEach(d=>{prodTotal+=d.producao||0;hTotal+=d.horas||0})});
+  const fatHora=hTotal>0?prodTotal/hTotal:0;
+  let somaOcup=0,cntOcup=0;
+  dNames.forEach(dn=>{(fi==='all'?meses.map((_,i)=>i):[+fi]).forEach(i=>{if(dent[dn].taxaOcup[i]!=null){somaOcup+=dent[dn].taxaOcup[i];cntOcup++}})});
+  const taxaDent=cntOcup>0?somaOcup/cntOcup:0;
+  document.getElementById('kpiGeralRow').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Taxa Ocup. Geral (Consultórios)</div><div class="kpi-value">${taxaGeral.toFixed(1).replace('.',',')}%</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">Taxa Média Ocup. (Dentistas)</div><div class="kpi-value">${taxaDent.toFixed(1).replace('.',',')}%</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Produção Total</div><div class="kpi-value">${fmtBRL(prodTotal)}</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Fat./Hora Clínica</div><div class="kpi-value">${fmtBRL(fatHora)}</div></div>
+    <div class="kpi-card purple"><div class="kpi-label">Horas Produtivas Totais</div><div class="kpi-value">${Math.round(hTotal)}h</div></div>`;
+  // Gráfico de Horas Vagas por Consultório (substitui taxa de ocupação)
+  destroyChart('gVagas');
+  {const mc=DATA.medicoes.consultorios;const cNamesV=Object.keys(mc);
+  charts['gVagas']=new Chart(document.getElementById('chartGeralVagas'),{
+    type:'line',
+    data:{labels:meses.map(capitalize),datasets:cNamesV.map((c,i)=>({
+      label:c,
+      data:meses.map((_,idx)=>+hhmmToH(mc[c].vago[idx]).toFixed(1)),
+      borderColor:COLORS[i],backgroundColor:getColor(i,0.08),
+      tension:.35,pointRadius:4,borderWidth:2.5,fill:false,spanGaps:true
+    }))},
+    options:{...lineOpts('h',[0,null]),plugins:{...lineOpts('h').plugins,
+      tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y}h vagas`}}}}
+  });}
+  destroyChart('gFatMes');
+  const fhData=meses.map(m=>{const obj=mesObj[m]||{};let p=0,h=0;Object.values(obj).forEach(d=>{p+=d.producao||0;h+=d.horas||0});return h>0?+(p/h).toFixed(2):0});
+  charts['gFatMes']=new Chart(document.getElementById('chartGeralFatMes'),{type:'bar',data:{labels:meses.map(capitalize),datasets:[{label:'R$/hora',data:fhData,backgroundColor:COLORS.map((c,i)=>getColor(i,0.75)),borderColor:COLORS,borderWidth:1,borderRadius:6}]},options:{...lineOpts('R$'),plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` R$ ${c.parsed.y.toFixed(2).replace('.',',')}`}}},scales:{x:{ticks:{color:'#64748b'},grid:{display:false}},y:{ticks:{color:'#64748b',callback:v=>'R$ '+v.toFixed(0)},grid:{color:'rgba(1,34,106,0.05)'},beginAtZero:true}}}});
+  {const idxs=fi==='all'?meses.map((_,i)=>i):[+fi];const ranking=dNames.map(dn=>{let s=0,c=0;idxs.forEach(i=>{if(dent[dn].taxaOcup[i]!=null){s+=dent[dn].taxaOcup[i];c++}});return{name:dn,val:c>0?s/c:0}}).sort((a,b)=>b.val-a.val);const max=ranking[0]?.val||1;document.getElementById('rankingOcup').innerHTML=ranking.map((r,i)=>`<div class="rank-row"><div class="rank-num">${i+1}</div><div class="rank-name">${r.name}</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:${(r.val/max*100).toFixed(0)}%;background:${COLORS[i%COLORS.length]}"></div></div><div class="rank-val" style="color:${COLORS[i%COLORS.length]}">${r.val.toFixed(1).replace('.',',')}%</div></div>`).join('')}
+  {const ranking=dNames.map(dn=>{let p=0,h=0;mesAtivos.forEach(m=>{const d=(mesObj[m]||{})[dn];if(d){p+=d.producao||0;h+=d.horas||0}});return{name:dn,val:h>0?p/h:0}}).sort((a,b)=>b.val-a.val);const max=ranking[0]?.val||1;document.getElementById('rankingFat').innerHTML=ranking.map((r,i)=>`<div class="rank-row"><div class="rank-num">${i+1}</div><div class="rank-name">${r.name}</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:${(r.val/max*100).toFixed(0)}%;background:${COLORS[i%COLORS.length]}"></div></div><div class="rank-val" style="color:${COLORS[i%COLORS.length]}">${fmtBRL(r.val)}</div></div>`).join('')}
+  destroyChart('gProdCons');
+  {const idxs=fi==='all'?meses.map((_,i)=>i):[+fi];const vals=cNames.map(c=>{let p=0;idxs.forEach(i=>{p+=hhmmToH(cons[c].horasDisp[i])*(cons[c].taxaOcup[i]||0)/100});return+p.toFixed(1)});charts['gProdCons']=new Chart(document.getElementById('chartGeralProdCons'),{type:'doughnut',data:{labels:cNames,datasets:[{data:vals,backgroundColor:COLORS.slice(0,cNames.length),borderWidth:3,borderColor:'#fff'}]},options:donutOpts('h')})}
+}
+
+// ══ OCUPAÇÃO CONSULTÓRIO ════════════════════════════════════
+function renderOcupConsultorio(){
+  const yd2=YD();const C_=yd2.consultorios||{},cNames=Object.keys(C_),meses=yd2.meses||[];
+  destroyChart('ocupCons');
+  charts['ocupCons']=new Chart(document.getElementById('chartOcupConsultorio'),{type:'line',data:{labels:meses.map(capitalize),datasets:cNames.map((c,i)=>({label:c,data:C_[c].taxaOcup,borderColor:COLORS[i],backgroundColor:getColor(i,0.08),tension:.35,pointRadius:5,borderWidth:2.5,fill:i===0,spanGaps:true}))},options:lineOpts('%',[0,100])});
+  const head=document.getElementById('tblOcupConsultorioHead'),body=document.getElementById('tblOcupConsultorioBody');
+  head.innerHTML=`<tr><th class="left" style="background:var(--surface2)">DATA (Data)</th>${cNames.map((c,i)=>`<th colspan="2" class="th-grp" style="background:${COLORS[i]}">${c}</th>`).join('')}<th colspan="2" class="th-grp">Total Geral</th></tr><tr><th class="left" style="background:var(--surface2)"></th>${cNames.map(()=>'<th>Horas disp.</th><th>Taxa Ocup.</th>').join('')}<th>Horas disp.</th><th>Taxa Ocup.</th></tr>`;
+  let tH={},tP={};cNames.forEach(c=>{tH[c]=0;tP[c]=0});let gH=0,gP=0;
+  const rows=meses.map((m,i)=>{let rH=0,rP=0;cNames.forEach(c=>{const h=hhmmToH(C_[c].horasDisp[i]);rH+=h;rP+=h*(C_[c].taxaOcup[i]||0)/100;tH[c]+=h;tP[c]+=h*(C_[c].taxaOcup[i]||0)/100});gH+=rH;gP+=rP;return`<tr><td class="left">${capitalize(m)}</td>${cNames.map(c=>`<td>${C_[c].horasDisp[i]}</td><td><span class="${taxaClass(C_[c].taxaOcup[i])}">${fmtPct(C_[c].taxaOcup[i])}</span></td>`).join('')}<td style="font-weight:700">${hDecimalToHHMM(rH)}</td><td><span class="${taxaClass(rH>0?rP/rH*100:null)}">${fmtPct(rH>0?rP/rH*100:null)}</span></td></tr>`}).join('');
+  body.innerHTML=rows+`<tr class="total"><td class="left">Total Geral</td>${cNames.map(c=>`<td>${hDecimalToHHMM(tH[c])}</td><td>${fmtPct(tH[c]>0?tP[c]/tH[c]*100:null)}</td>`).join('')}<td>${hDecimalToHHMM(gH)}</td><td>${fmtPct(gH>0?gP/gH*100:null)}</td></tr>`;
+}
+
+// ══ OCUPAÇÃO DENTISTA ═══════════════════════════════════════
+function renderOcupDentista(){
+  const yd3=YD();const Dent=yd3.dentistas||{},dNames=Object.keys(Dent),meses=yd3.meses||[];
+  const head=document.getElementById('tblOcupDentistaHead'),body=document.getElementById('tblOcupDentistaBody');
+  head.innerHTML=`<tr><th class="left" style="background:var(--surface2)">DATA (Data)</th>${dNames.map((d,i)=>`<th colspan="2" class="th-grp" style="background:${COLORS[i]}">${d}</th>`).join('')}<th colspan="2" class="th-grp">Total Geral</th></tr><tr><th class="left" style="background:var(--surface2)"></th>${dNames.map(()=>'<th>Horas disp.</th><th>Taxa Ocup.</th>').join('')}<th>Horas disp.</th><th>Taxa Ocup.</th></tr>`;
+  let tH={},tT={},tN={};dNames.forEach(d=>{tH[d]=0;tT[d]=0;tN[d]=0});let gH=0,gS=0,gC=0;
+  const rows=meses.map((m,i)=>{let rH=0,rS=0,rC=0;dNames.forEach(d=>{const h=hhmmToH(Dent[d].horasDisp[i]);rH+=h;tH[d]+=h;if(Dent[d].taxaOcup[i]!=null){rS+=Dent[d].taxaOcup[i];rC++;tT[d]+=Dent[d].taxaOcup[i];tN[d]++}});gH+=rH;gS+=rS;gC+=rC;return`<tr><td class="left">${capitalize(m)}</td>${dNames.map(d=>`<td>${Dent[d].horasDisp[i]}</td><td><span class="${taxaClass(Dent[d].taxaOcup[i])}">${fmtPct(Dent[d].taxaOcup[i])}</span></td>`).join('')}<td style="font-weight:700">${hDecimalToHHMM(rH)}</td><td><span class="${taxaClass(rC>0?rS/rC:null)}">${rC>0?fmtPct(rS/rC):'—'}</span></td></tr>`}).join('');
+  let gSumT=0,gNC=0;dNames.forEach(d=>{gSumT+=tT[d];gNC+=tN[d]});
+  body.innerHTML=rows+`<tr class="total"><td class="left">Total Geral</td>${dNames.map(d=>`<td>${hDecimalToHHMM(tH[d])}</td><td>${fmtPct(tN[d]>0?tT[d]/tN[d]:null)}</td>`).join('')}<td>${hDecimalToHHMM(gH)}</td><td>${fmtPct(gNC>0?gSumT/gNC:null)}</td></tr>`;
+  destroyChart('ocupDent');
+  charts['ocupDent']=new Chart(document.getElementById('chartOcupDentista'),{type:'line',data:{labels:meses.map(capitalize),datasets:dNames.map((d,i)=>({label:d,data:Dent[d].taxaOcup,borderColor:COLORS[i],backgroundColor:'transparent',tension:.3,pointRadius:4,borderWidth:2,fill:false,spanGaps:true}))},options:lineOpts('%',[0,100])});
+}
+
+// ══ FATURAMENTO ═════════════════════════════════════════════
+function renderFaturamento(){
+  const yd4=YD();const mesNome=(yd4.meses||[])[mesFatAtivo],mesDados=((yd4.faturamento||{}).porDentistaPorMes||{})[mesNome]||{},dNames=Object.keys(mesDados);
+  let prodTotal=0,hTotal=0;Object.values(mesDados).forEach(d=>{prodTotal+=d.producao||0;hTotal+=d.horas||0});
+  const fatHora=hTotal>0?prodTotal/hTotal:0;
+  document.getElementById('kpiProdTotal').textContent=fmtBRL(prodTotal);
+  document.getElementById('kpiHorasTotais').textContent=Math.round(hTotal)+'h';
+  document.getElementById('kpiFatHora').textContent=fmtBRL(fatHora);
+  document.getElementById('kpiFatHoraRight').textContent=fmtBRL(fatHora);
+  const bg=dNames.map((_,i)=>COLORS[i%COLORS.length]);
+  destroyChart('prodDonut');charts['prodDonut']=new Chart(document.getElementById('chartProdDonut'),{type:'doughnut',data:{labels:dNames,datasets:[{data:dNames.map(d=>mesDados[d].producao||0),backgroundColor:bg,borderWidth:3,borderColor:'#fff'}]},options:donutOpts('')});
+  destroyChart('horasDonut');charts['horasDonut']=new Chart(document.getElementById('chartHorasDonut'),{type:'doughnut',data:{labels:dNames,datasets:[{data:dNames.map(d=>mesDados[d].horas||0),backgroundColor:bg,borderWidth:3,borderColor:'#fff'}]},options:donutOpts('h')});
+  destroyChart('fatBar');
+  const sorted=dNames.map((d,i)=>({name:d,val:mesDados[d].horas>0?mesDados[d].producao/mesDados[d].horas:0,i})).sort((a,b)=>b.val-a.val);
+  charts['fatBar']=new Chart(document.getElementById('chartFatBar'),{type:'bar',data:{labels:sorted.map(x=>x.name),datasets:[{label:'R$/hora',data:sorted.map(x=>+x.val.toFixed(2)),backgroundColor:sorted.map(x=>COLORS[x.i%COLORS.length]),borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` R$ ${c.parsed.y.toFixed(2).replace('.',',')}`}}},scales:{x:{ticks:{color:'#64748b'},grid:{display:false}},y:{ticks:{color:'#64748b',callback:v=>'R$ '+v.toFixed(0)},grid:{color:'rgba(1,34,106,0.05)'},beginAtZero:true}}}});
+  destroyChart('fatLine');
+  const _yd4b=YD();const allDents=[...new Set((_yd4b.meses||[]).flatMap(m=>Object.keys(((_yd4b.faturamento||{}).porDentistaPorMes||{})[m]||{})))];
+  charts['fatLine']=new Chart(document.getElementById('chartFatLine'),{type:'line',data:{labels:(_yd4b.meses||[]).map(capitalize),datasets:allDents.map((d,i)=>({label:d,data:(_yd4b.meses||[]).map(m=>{const md=(((_yd4b.faturamento||{}).porDentistaPorMes||{})[m]||{})[d];return md&&md.horas?+(md.producao/md.horas).toFixed(2):null}),borderColor:COLORS[i%COLORS.length],backgroundColor:'transparent',tension:.3,pointRadius:4,borderWidth:2,spanGaps:false,fill:false}))},options:lineOpts('R$',[0,null])});
+}
+
+// ══ MEDIÇÕES ════════════════════════════════════════════════
+function renderMedicoes(){
+  const yd5=YD();const meses=yd5.meses||[],mc=(yd5.medicoes||{consultorios:{},dentistas:{}}).consultorios||{},md=(yd5.medicoes||{consultorios:{},dentistas:{}}).dentistas||{};
+  const cNames=Object.keys(mc),dNames=Object.keys(md);
+  {const head=document.getElementById('tblMedConsHead'),body=document.getElementById('tblMedConsBody');
+  head.innerHTML=`<tr><th class="left" style="background:var(--surface2)">Mês</th>${cNames.map((c,i)=>`<th colspan="3" class="th-grp" style="background:${COLORS[i]}">${c}</th>`).join('')}<th colspan="3" class="th-grp">Total Geral</th></tr><tr><th class="left" style="background:var(--surface2)"></th>${cNames.map(()=>'<th>Produção</th><th>Ocioso</th><th>Vago</th>').join('')}<th>Produção</th><th>Ocioso</th><th>Vago</th></tr>`;
+  let tP={},tO={},tV={};cNames.forEach(c=>{tP[c]=0;tO[c]=0;tV[c]=0});
+  const rows=meses.map((m,i)=>{let gP=0,gO=0,gV=0;cNames.forEach(c=>{gP+=hhmmToH(mc[c].producao[i]);gO+=hhmmToH(mc[c].ocioso[i]);gV+=hhmmToH(mc[c].vago[i]);tP[c]+=hhmmToH(mc[c].producao[i]);tO[c]+=hhmmToH(mc[c].ocioso[i]);tV[c]+=hhmmToH(mc[c].vago[i])});return`<tr><td class="left">${capitalize(m)}</td>${cNames.map(c=>`<td>${mc[c].producao[i]}</td><td style="color:var(--muted)">${mc[c].ocioso[i]}</td><td style="color:var(--orange)">${mc[c].vago[i]}</td>`).join('')}<td style="font-weight:700">${hDecimalToHHMM(gP)}</td><td style="color:var(--muted);font-weight:700">${hDecimalToHHMM(gO)}</td><td style="color:var(--orange);font-weight:700">${hDecimalToHHMM(gV)}</td></tr>`}).join('');
+  let gtP=0,gtO=0,gtV=0;cNames.forEach(c=>{gtP+=tP[c];gtO+=tO[c];gtV+=tV[c]});
+  body.innerHTML=rows+`<tr class="total"><td class="left">Total Geral</td>${cNames.map(c=>`<td>${hDecimalToHHMM(tP[c])}</td><td>${hDecimalToHHMM(tO[c])}</td><td>${hDecimalToHHMM(tV[c])}</td>`).join('')}<td>${hDecimalToHHMM(gtP)}</td><td>${hDecimalToHHMM(gtO)}</td><td>${hDecimalToHHMM(gtV)}</td></tr>`;
+  destroyChart('medConsBars');charts['medConsBars']=new Chart(document.getElementById('chartMedConsBars'),{type:'bar',data:{labels:meses.map(capitalize),datasets:[{label:'Produção',data:meses.map((_,i)=>{let s=0;cNames.forEach(c=>s+=hhmmToH(mc[c].producao[i]));return+s.toFixed(1)}),backgroundColor:getColor(1,0.80),borderRadius:4},{label:'Ocioso',data:meses.map((_,i)=>{let s=0;cNames.forEach(c=>s+=hhmmToH(mc[c].ocioso[i]));return+s.toFixed(1)}),backgroundColor:getColor(2,0.75),borderRadius:4},{label:'Vago',data:meses.map((_,i)=>{let s=0;cNames.forEach(c=>s+=hhmmToH(mc[c].vago[i]));return+s.toFixed(1)}),backgroundColor:getColor(3,0.70),borderRadius:4}]},options:stackedBarOpts()})}
+  {const head=document.getElementById('tblMedDentHead'),body=document.getElementById('tblMedDentBody');
+  head.innerHTML=`<tr><th class="left" style="background:var(--surface2)">Mês</th>${dNames.map((d,i)=>`<th colspan="2" class="th-grp" style="background:${COLORS[i]}">${d}</th>`).join('')}<th colspan="2" class="th-grp">Total Geral</th></tr><tr><th class="left" style="background:var(--surface2)"></th>${dNames.map(()=>'<th>Produção</th><th>Ocioso</th>').join('')}<th>Produção</th><th>Ocioso</th></tr>`;
+  let dtP={},dtO={};dNames.forEach(d=>{dtP[d]=0;dtO[d]=0});
+  const rows=meses.map((m,i)=>{let gP=0,gO=0;dNames.forEach(d=>{gP+=hhmmToH(md[d].producao[i]);gO+=hhmmToH(md[d].ocioso[i]);dtP[d]+=hhmmToH(md[d].producao[i]);dtO[d]+=hhmmToH(md[d].ocioso[i])});return`<tr><td class="left">${capitalize(m)}</td>${dNames.map(d=>`<td>${md[d].producao[i]}</td><td style="color:var(--muted)">${md[d].ocioso[i]}</td>`).join('')}<td style="font-weight:700">${hDecimalToHHMM(gP)}</td><td style="color:var(--muted);font-weight:700">${hDecimalToHHMM(gO)}</td></tr>`}).join('');
+  let gdP=0,gdO=0;dNames.forEach(d=>{gdP+=dtP[d];gdO+=dtO[d]});
+  body.innerHTML=rows+`<tr class="total"><td class="left">Total Geral</td>${dNames.map(d=>`<td>${hDecimalToHHMM(dtP[d])}</td><td>${hDecimalToHHMM(dtO[d])}</td>`).join('')}<td>${hDecimalToHHMM(gdP)}</td><td>${hDecimalToHHMM(gdO)}</td></tr>`;
+  destroyChart('medDentBars');charts['medDentBars']=new Chart(document.getElementById('chartMedDentBars'),{type:'bar',data:{labels:meses.map(capitalize),datasets:[{label:'Produção',data:meses.map((_,i)=>{let s=0;dNames.forEach(d=>s+=hhmmToH(md[d].producao[i]));return+s.toFixed(1)}),backgroundColor:getColor(1,0.80),borderRadius:4},{label:'Ocioso',data:meses.map((_,i)=>{let s=0;dNames.forEach(d=>s+=hhmmToH(md[d].ocioso[i]));return+s.toFixed(1)}),backgroundColor:getColor(2,0.75),borderRadius:4}]},options:stackedBarOpts()})}
+}
+
+// ══ NAVEGAÇÃO ═══════════════════════════════════════════════
+document.querySelectorAll('.nav-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('page-'+tab.dataset.page).classList.add('active');
+  });
+});
+
+init();
+</script>
+</body>
+</html>
